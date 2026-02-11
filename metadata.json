@@ -1,0 +1,7 @@
+{
+  "name": "DriveSelect AI",
+  "description": "A premium car booking platform powered by Gemini AI for personalized recommendations and smart concierge assistance.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
