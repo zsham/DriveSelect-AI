@@ -1,22 +1,37 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
-import { Message } from '../types';
+import { Message, User } from '../types';
 import { Icons, MOCK_CARS } from '../constants';
 
 interface AiConciergeProps {
   isOpen: boolean;
   onClose: () => void;
+  user: User | null;
 }
 
-const AiConcierge: React.FC<AiConciergeProps> = ({ isOpen, onClose }) => {
+const AiConcierge: React.FC<AiConciergeProps> = ({ isOpen, onClose, user }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: "Selamat Datang! 👋 I'm your DriveSelect Concierge. Let's find your dream ride for the Malaysian roads!",
+      content: user 
+        ? `Selamat Datang, ${user.name}! 👋 Ready to find your next luxury drive today?` 
+        : "Selamat Datang! 👋 I'm your DriveSelect Concierge. Sign in for personalized bookings, or let's browse Malaysian icons together!",
       timestamp: new Date()
     }
   ]);
+
+  // Reset initial message when user changes
+  useEffect(() => {
+    if (user && messages.length === 1) {
+      setMessages([{
+        role: 'assistant',
+        content: `Hi ${user.name}! I can see you're logged in. Looking for a ${user.role === 'admin' ? 'fleet report or a personal' : ''} luxury car today?`,
+        timestamp: new Date()
+      }]);
+    }
+  }, [user]);
+
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -46,8 +61,12 @@ const AiConcierge: React.FC<AiConciergeProps> = ({ isOpen, onClose }) => {
 
       const prompt = `
         You are a high-energy luxury car concierge for "DriveSelect AI" in MALAYSIA. 
+        Current User: ${user ? `${user.name} (${user.role} role)` : 'Guest'}
         Fleet: ${JSON.stringify(MOCK_CARS.map(c => ({ name: c.name, brand: c.brand, price: `RM ${c.pricePerDay}` })))}
-        Be vibrant, use emojis, and be extremely helpful.
+        Instructions: 
+        1. Be vibrant and helpful.
+        2. If they are an admin, you can mention fleet availability.
+        3. If they are a guest, suggest signing in to book.
       `;
 
       const result = await ai.models.generateContent({
@@ -87,7 +106,7 @@ const AiConcierge: React.FC<AiConciergeProps> = ({ isOpen, onClose }) => {
             <div>
               <h2 className="text-white text-2xl font-black tracking-tight">AI Concierge</h2>
               <p className="text-white/70 text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Now Online
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Online
               </p>
             </div>
           </div>

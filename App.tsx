@@ -1,18 +1,32 @@
 
-import React, { useState, useMemo } from 'react';
-import { Car, CarCategory } from './types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Car, CarCategory, User, BookingRecord } from './types';
 import { MOCK_CARS, Icons } from './constants';
 import CarCard from './components/CarCard';
 import Navbar from './components/Navbar';
 import AiConcierge from './components/AiConcierge';
 import Hero from './components/Hero';
 import FilterBar from './components/FilterBar';
+import AuthModal from './components/AuthModal';
+import AdminDashboard from './components/AdminDashboard';
 
 const App: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<CarCategory | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAiOpen, setIsAiOpen] = useState(false);
-  const [bookedCars, setBookedCars] = useState<string[]>([]);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [view, setView] = useState<'storefront' | 'admin'>('storefront');
+  const [bookings, setBookings] = useState<BookingRecord[]>([]);
+
+  // Initialize session and bookings from storage
+  useEffect(() => {
+    const savedUser = localStorage.getItem('ds_session');
+    if (savedUser) setCurrentUser(JSON.parse(savedUser));
+    
+    const savedBookings = localStorage.getItem('ds_bookings');
+    if (savedBookings) setBookings(JSON.parse(savedBookings));
+  }, []);
 
   const filteredCars = useMemo(() => {
     return MOCK_CARS.filter(car => {
@@ -23,17 +37,66 @@ const App: React.FC = () => {
     });
   }, [selectedCategory, searchQuery]);
 
-  const handleBooking = (carId: string) => {
-    setBookedCars(prev => [...prev, carId]);
-    // Smooth toast could be added here, using native alert for now
-    setTimeout(() => {
-        alert(`Reservation confirmed! We've secured your ${MOCK_CARS.find(c => c.id === carId)?.name}.`);
-    }, 100);
+  const handleLogin = (user: User) => {
+    setCurrentUser(user);
+    localStorage.setItem('ds_session', JSON.stringify(user));
   };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setView('storefront');
+    localStorage.removeItem('ds_session');
+  };
+
+  const handleBooking = (car: Car) => {
+    if (!currentUser) {
+      setIsAuthOpen(true);
+      return;
+    }
+
+    const newBooking: BookingRecord = {
+      id: Math.random().toString(36).substr(2, 9),
+      carId: car.id,
+      carName: car.name,
+      userName: currentUser.name,
+      userEmail: currentUser.email,
+      date: new Date().toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }),
+      price: car.pricePerDay
+    };
+
+    const updatedBookings = [newBooking, ...bookings];
+    setBookings(updatedBookings);
+    localStorage.setItem('ds_bookings', JSON.stringify(updatedBookings));
+    
+    alert(`Reservation confirmed, ${currentUser.name}! Your ${car.name} is ready for pickup.`);
+  };
+
+  const isCarBooked = (carId: string) => bookings.some(b => b.carId === carId && b.userEmail === currentUser?.email);
+
+  if (view === 'admin' && currentUser?.role === 'admin') {
+    return (
+      <div className="min-h-screen bg-white">
+        <Navbar 
+          user={currentUser} 
+          onAuthClick={() => setIsAuthOpen(true)} 
+          onLogout={handleLogout}
+          onSwitchView={setView}
+          currentView={view}
+        />
+        <AdminDashboard bookings={bookings} onExit={() => setView('storefront')} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-blue-100 selection:text-blue-900">
-      <Navbar />
+      <Navbar 
+        user={currentUser} 
+        onAuthClick={() => setIsAuthOpen(true)} 
+        onLogout={handleLogout}
+        onSwitchView={setView}
+        currentView={view}
+      />
       
       <main className="flex-grow">
         <Hero 
@@ -60,8 +123,8 @@ const App: React.FC = () => {
                 <CarCard 
                   key={car.id} 
                   car={car} 
-                  onBook={() => handleBooking(car.id)}
-                  isBooked={bookedCars.includes(car.id)}
+                  onBook={() => handleBooking(car)}
+                  isBooked={isCarBooked(car.id)}
                 />
               ))}
             </div>
@@ -83,7 +146,6 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Modern Floating AI Button */}
       <button 
         onClick={() => setIsAiOpen(true)}
         className="fixed bottom-10 right-10 w-20 h-20 bg-slate-900 text-white rounded-[2rem] shadow-2xl flex items-center justify-center hover:bg-blue-600 transition-all hover:scale-110 active:scale-95 z-40 animate-pulse-soft group overflow-hidden"
@@ -94,7 +156,17 @@ const App: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-to-tr from-blue-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
       </button>
 
-      <AiConcierge isOpen={isAiOpen} onClose={() => setIsAiOpen(false)} />
+      <AiConcierge 
+        isOpen={isAiOpen} 
+        onClose={() => setIsAiOpen(false)} 
+        user={currentUser}
+      />
+      
+      <AuthModal 
+        isOpen={isAuthOpen} 
+        onClose={() => setIsAuthOpen(false)} 
+        onLogin={handleLogin}
+      />
 
       <footer className="bg-white pt-24 pb-12 px-6 border-t border-slate-100">
         <div className="max-w-7xl mx-auto">
