@@ -1,11 +1,13 @@
 
-export type Role = 'admin' | 'user';
+export type Role = 'admin' | 'merchant' | 'user';
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: Role;
+  shopStatus?: 'pending' | 'active' | 'suspended';
+  shopName?: string;
 }
 
 export type CarCategory = 'Luxury' | 'SUV' | 'Sport' | 'Economy' | 'Electric';

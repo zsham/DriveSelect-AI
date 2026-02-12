@@ -22,11 +22,17 @@ const App: React.FC = () => {
   // Initialize session and bookings from storage
   useEffect(() => {
     const savedUser = localStorage.getItem('ds_session');
-    if (savedUser) setCurrentUser(JSON.parse(savedUser));
+    if (savedUser) {
+      const parsed = JSON.parse(savedUser);
+      // Re-sync with ds_users to get status updates from Admin
+      const allUsers = JSON.parse(localStorage.getItem('ds_users') || '[]');
+      const upToDateUser = allUsers.find((u: User) => u.id === parsed.id);
+      setCurrentUser(upToDateUser || parsed);
+    }
     
     const savedBookings = localStorage.getItem('ds_bookings');
     if (savedBookings) setBookings(JSON.parse(savedBookings));
-  }, []);
+  }, [view]);
 
   const filteredCars = useMemo(() => {
     return MOCK_CARS.filter(car => {
@@ -54,6 +60,11 @@ const App: React.FC = () => {
       return;
     }
 
+    if (currentUser.role === 'merchant' && currentUser.shopStatus !== 'active') {
+       alert("Your shop setup is still pending. Once approved by our Admin, you can interact with the fleet.");
+       return;
+    }
+
     const newBooking: BookingRecord = {
       id: Math.random().toString(36).substr(2, 9),
       carId: car.id,
@@ -68,7 +79,7 @@ const App: React.FC = () => {
     setBookings(updatedBookings);
     localStorage.setItem('ds_bookings', JSON.stringify(updatedBookings));
     
-    alert(`Reservation confirmed, ${currentUser.name}! Your ${car.name} is ready for pickup.`);
+    alert(`Success! Your reservation for ${car.name} has been logged.`);
   };
 
   const isCarBooked = (carId: string) => bookings.some(b => b.carId === carId && b.userEmail === currentUser?.email);
@@ -99,6 +110,23 @@ const App: React.FC = () => {
       />
       
       <main className="flex-grow">
+        {/* Merchant Pending Notice */}
+        {currentUser?.role === 'merchant' && currentUser.shopStatus === 'pending' && (
+          <div className="fixed top-28 left-1/2 -translate-x-1/2 z-[80] w-full max-w-xl px-4 animate-in slide-in-from-top-4 duration-500">
+            <div className="bg-amber-500 text-white p-6 rounded-[2rem] shadow-2xl flex items-center justify-between border-4 border-white">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+                  <span className="text-lg">⏳</span>
+                </div>
+                <div>
+                  <p className="font-black text-xs uppercase tracking-widest">Shop Status: Pending Approval</p>
+                  <p className="text-[10px] opacity-80 font-bold uppercase">Our admin is setting up your store credentials.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <Hero 
           onSearch={(query) => setSearchQuery(query)} 
           onOpenAi={() => setIsAiOpen(true)}
@@ -108,8 +136,8 @@ const App: React.FC = () => {
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
             <div className="max-w-xl">
               <span className="text-blue-600 font-black text-xs uppercase tracking-[0.3em] block mb-4">The Selection</span>
-              <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-4">Our Local Icons.</h2>
-              <p className="text-slate-500 font-medium">Browse through our hand-picked collection of the finest vehicles available across Malaysia.</p>
+              <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-4">Fleet Showcase.</h2>
+              <p className="text-slate-500 font-medium">Browse vehicles managed by our verified Malaysian shop owners.</p>
             </div>
             <FilterBar 
               selected={selectedCategory} 
@@ -133,13 +161,13 @@ const App: React.FC = () => {
               <div className="mx-auto w-24 h-24 bg-white flex items-center justify-center rounded-full mb-8 shadow-xl">
                 <Icons.Search />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">Vehicle Not Found</h3>
-              <p className="text-slate-400 font-medium mb-8">Perhaps your dream car is in another category?</p>
+              <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">No Results</h3>
+              <p className="text-slate-400 font-medium mb-8">Try a different filter or search term.</p>
               <button 
                 onClick={() => { setSelectedCategory('All'); setSearchQuery(''); }}
                 className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl hover:shadow-blue-200"
               >
-                Reset Filters
+                Reset All
               </button>
             </div>
           )}
@@ -180,22 +208,22 @@ const App: React.FC = () => {
                   DRIVE<span className="text-blue-600 italic">SELECT</span>
                 </span>
               </div>
-              <p className="max-w-sm text-slate-400 font-medium leading-relaxed">Redefining mobility with luxury and intelligence. Every journey deserves the perfect companion.</p>
+              <p className="max-w-sm text-slate-400 font-medium leading-relaxed">The premium Malaysian marketplace connecting fleet owners with luxury travelers.</p>
             </div>
             <div>
-              <h3 className="text-slate-900 font-black text-xs uppercase tracking-widest mb-8">Navigation</h3>
+              <h3 className="text-slate-900 font-black text-xs uppercase tracking-widest mb-8">Ecosystem</h3>
               <ul className="space-y-4 text-slate-500 font-bold text-sm">
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Fleet Selection</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Booking Guide</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Member Rewards</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Apply as Partner</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Merchant Portal</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">API Docs</a></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-slate-900 font-black text-xs uppercase tracking-widest mb-8">Experience</h3>
+              <h3 className="text-slate-900 font-black text-xs uppercase tracking-widest mb-8">Platform</h3>
               <ul className="space-y-4 text-slate-500 font-bold text-sm">
-                <li><a href="#" className="hover:text-blue-600 transition-colors">AI Concierge</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">VIP Chauffeur</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Corporate Fleet</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Security</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Trust Center</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Legal</a></li>
               </ul>
             </div>
           </div>
